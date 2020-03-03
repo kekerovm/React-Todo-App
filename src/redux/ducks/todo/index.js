@@ -1,71 +1,137 @@
-// // import React from "react"
-// // import ReactDOM from "react-dom"
-// // import "./styles/base.css"
-// // import App from "./components/App"
-// // import * as serviceWorker from "./serviceWorker"
+import axios from "axios"
+import { useEffect } from "react"
+import { useSelector, useDispatch } from "react-redux"
 
-// // ReactDOM.render(<App />, document.getElementById("root"))
+const GET_TODOS = "todo/GET_TODOS"
+const SET_COUNT = "todo/SET_COUNT"
 
-// // // If you want your app to work offline and load faster, you can change
-// // // unregister() to register() below. Note this comes with some pitfalls.
-// // // Learn more about service workers: https://bit.ly/CRA-PWA
-// // serviceWorker.unregister()
+const initialState = {
+  todos: [],
+  count: 0
+}
 
-// // // export all reducers from this file to/*
+export default (state = initialState, action) => {
+  switch (action.type) {
+    case GET_TODOS:
+      return { ...state, todos: action.payload }
+    case SET_COUNT:
+      return { ...state, count: action.payload }
+    default:
+      return state
+  }
+}
 
-// // export default function() {
-// //   return {}
-// // }
+function getTodos() {
+  return dispatch => {
+    axios.get("/todos").then(resp => {
+      dispatch(getCount())
+      dispatch({
+        type: GET_TODOS,
+        payload: resp.data
+      })
+    })
+  }
+}
 
-// export
+function addTodo(text) {
+  return dispatch => {
+    axios.post("/todos", { text, status: "active" }).then(resp => {
+      dispatch(getTodos())
+    })
+  }
+}
 
-// import axios from 'axios'
-// import { useEffect } from 'react'
-// const GET_TODOS = 'todo/GET_TODOS'
+function deleteTodo(id) {
+  return dispatch => {
+    axios.delete("/todos/" + id).then(resp => {
+      dispatch(getTodos())
+    })
+  }
+}
 
-// const initialState = {
-//   todos: []
-// }
+function toggleTodo(id) {
+  return dispatch => {
+    axios.get("/todos/" + id).then(resp => {
+      const todo = resp.data
 
-// export default (state = initialState, action) => {
-//   switch (action.type) {
-//     case GET_TODOS:
-//       return {...state, todos: action.payLoad}
-//     default:
-//       return state
-//   }
-// }
+      if (todo.status === "completed") {
+        axios.patch("/todos/" + id, { status: "active" }).then(resp => {
+          dispatch(getTodos())
+        })
+      } else {
+        axios.patch("/todos/" + id, { status: "completed" }).then(resp => {
+          dispatch(getTodos())
+        })
+      }
+    })
+  }
+}
 
-// function getTodos () {
-//   return dispatch => {
-//     axios.get('/todos'.then(resp => {
-//       dispatch ({ typetype: GET_TODOS,
-//         payload: resp.data
-//       })
-//     })
-//   }
-// }
+function filterTodos(filter) {
+  return dispatch => {
+    let query = ""
 
-// function addTodo(text) {
-//   return dispatch => {
-//     axios.post("/todos", { text, status: 'active'}).then(resp => {
-//       dispatch(getTodos())
-//     })
-//   }
-// }
+    if (filter === "all") {
+      query = ""
+    } else if (filter === "completed") {
+      query = "?status=completed"
+    } else if (filter === "active") {
+      query = "?status=active"
+    }
 
-// export function useTodos(){
-//   const dispatch = useDispatch()
-//   const todos = useSelector(appState => appState.todoState.todos)
-//   const add = text => dispatch(addTodo(text))
+    axios.get(`/todos${query}`).then(resp => {
+      dispatch({
+        type: GET_TODOS,
+        payload: resp.data
+      })
+      dispatch(getCount())
+    })
+  }
+}
 
-//   function addTodo(text) {
-//     dispatch(addTodo(text))
-//   }
+function clearTodos() {
+  return dispatch => {
+    axios.get("/todos?status=completed").then(resp => {
+      Promise.all(
+        resp.data.map(
+          todo =>
+            new Promise((resolve, reject) => {
+              axios.delete("/todos/" + todo.id).then(resp => {
+                resolve()
+              })
+            })
+        )
+      ).then(values => {
+        dispatch(getTodos())
+      })
+    })
+  }
+}
 
-//   useEffect(() => {
-//     dispatch(getTodos())
-//   }, [])
+function getCount() {
+  return dispatch => {
+    axios.get("/todos?status=active").then(resp => {
+      dispatch({
+        type: SET_COUNT,
+        payload: resp.data.length
+      })
+    })
+  }
+}
 
-//   return { todos, add }
-// }
+export function useTodos() {
+  const dispatch = useDispatch()
+  const todos = useSelector(appState => appState.todoState.todos)
+  const count = useSelector(appState => appState.todoState.count)
+  const add = text => dispatch(addTodo(text))
+  const del = id => dispatch(deleteTodo(id))
+  const toggle = id => dispatch(toggleTodo(id))
+  const filter = filter => dispatch(filterTodos(filter))
+  const clear = () => dispatch(clearTodos())
+
+  useEffect(() => {
+    dispatch(getTodos())
+  }, [dispatch])
+
+  return { todos, add, del, toggle, count, filter, clear }
+}

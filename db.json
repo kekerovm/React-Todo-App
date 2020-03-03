@@ -1,1 +1,14 @@
-{}
+{
+  "todos": [
+    {
+      "text": "Go Shopping",
+      "status": "active",
+      "id": "1"
+    },
+    {
+      "text": "asdf",
+      "status": "active",
+      "id": "WPGzfux"
+    }
+  ]
+}
